@@ -1,28 +1,27 @@
-'''Este es el archivo con la conexión a la DB.'''
-import os
-from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
-from sqlmodel import SQLModel
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from data.models import Base
 
-load_dotenv()
-CLEVER_DB=(
-    f"postgresql+asyncpg://{os.getenv('CLEVER_USER')}:"
-    f"{os.getenv('CLEVER_PASSWORD')}@"
-    f"{os.getenv('CLEVER_HOST')}:"
-    f"{os.getenv('CLEVER_PORT')}/"
-    f"{os.getenv('CLEVER_DATABASE')}"
+# Configuración para SQLite (local)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./users.db"
+
+# Para configuración remota, descomentar y ajustar la siguiente línea
+# SQLALCHEMY_DATABASE_URL = "postgresql://user:password@postgresserver/db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-DATABASE_URL= "sqlite+aiosqlite:///petsdb.db"
 
-engine : AsyncEngine = create_async_engine(CLEVER_DB, echo=True)
-async_session =sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+# Función para inicializar la base de datos
+def init_db():
+    Base.metadata.create_all(bind=engine)
 
-async def get_session():
-    async with async_session() as session:
-        yield session
+# Dependencia para obtener la sesión de la base de datos
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
